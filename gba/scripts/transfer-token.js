@@ -2,22 +2,31 @@ const { ethers } = require("hardhat");
 
 (async () => {
     // contract address obtained from etherscan after deployment
-    const contractAddr = '0x8e4fB3E962bC36b44E26e9CF8357ff7223879941';
+    // update this to your contract address
+    const contractAddr = '0xDD0b177d109A5E11417b16D5a01Efe61893B0C55';
 
     // get the accounts
     const accounts = await ethers.getSigners();
 
+    const fromAddr = accounts[0].address;
+
+    // update this to any address you want to send the token
+    const toAddr = accounts[1].address;
+
     // get the contract
-    const contract = await ethers.getContractAt('TutorialERC20', contractAddr); 
+    const contract = await ethers.getContractAt('AssignmentERC20', contractAddr); 
     
     // get balance before transfer
-    let beforeFrom = await contract.balanceOf(accounts[0].address);
-    let beforeTo = await contract.balanceOf(accounts[1].address);
+    let beforeFrom = await contract.balanceOf(fromAddr);
+    let beforeTo = await contract.balanceOf(toAddr);
     console.log("balance of From account before transfer", beforeFrom);
     console.log("balance of To account before transfer", beforeTo);
 
-    // transfer 0.5 WNDRS token to accounts[1]
-    let response = await contract.transfer(accounts[1].address, ethers.utils.parseUnits('0.5', 'ether'));
+    // transfer X amount of token to toAddr
+    // update this to any amount you want to transfer
+    let transferAmt = 0.5;
+    
+    let response = await contract.transfer(toAddr, ethers.utils.parseUnits(transferAmt, 'ether'));
 
     // wait for the recept
     let receipt = await response.wait();
@@ -29,8 +38,8 @@ const { ethers } = require("hardhat");
     console.log(transfer.args._value);
 
     // get balance after transfer
-    let afterFrom = await contract.balanceOf(accounts[0].address);
-    let afterTo = await contract.balanceOf(accounts[1].address);
+    let afterFrom = await contract.balanceOf(fromAddr);
+    let afterTo = await contract.balanceOf(toAddr);
     console.log("balance of From account after transfer", afterFrom);
     console.log("balance of To account after transfer", afterTo);
 
