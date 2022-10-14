@@ -19,14 +19,32 @@ contract Crowdsale{
         require(msg.value >= _unitPrice * amount, "Insufficient payment");
         address buyer = msg.sender;
         _token.mint (buyer, amount);
+
         emit Buy(buyer, amount);
     }
 
-    event Transfer (address to, uint256 amount);
+    event UnitPrice (uint256 unitprice);
 
-    function transfer (address to, uint256 amount) public {
+    function adjustUnitPrice (uint256 unitPrice) public {
+        require (msg.sender == _owner, "Non owner of contract");
+        _unitPrice = unitPrice;
+
+        emit UnitPrice (_unitPrice);
+    }
+
+    function getUnitPrice () public view returns (uint256 unitPrice) {
+        return _unitPrice;
+    }
+
+    event Transfer (address to, uint256 amount);
+    
+    function transferEthOut (address to, uint256 amount) public payable {
         require (msg.sender == _owner, "Non owner of contract");
         address payable receiver = payable (to);
         receiver.transfer(amount);
+    }
+
+    function getEthBalance () public view returns (uint256 ethBalance){
+        return address(this).balance;
     }
 }

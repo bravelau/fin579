@@ -27,7 +27,7 @@ const { ethers } = require("hardhat");
     console.log(before);
 
     // mint more tokens 
-    let mintAmt = 10;
+    let mintAmt = 1000000000;
 
     response = await contract.mint(accounts[0].address, ethers.utils.parseUnits(mintAmt.toString(), 'ether'));
     await response.wait();
