@@ -17,9 +17,6 @@ const wndrAddr = "0xDD0b177d109A5E11417b16D5a01Efe61893B0C55";
 // CHRON token contract address
 const chronAddr = "0xDd6010412b61570bd6f0101460bb80bDbE103E28";
 
-// Liquidity pool address
-const pairAddr = "0x2C423E5c531c1c5b5743119242Feb14006d75268"
-
 const getAbi = (filename) =>{
     try{
         const dir = path.resolve (
