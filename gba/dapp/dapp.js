@@ -64,6 +64,80 @@ const getApproval = async (tokenAddr, spenderAddr, amount) => {
   return app;   
 }
 
+// Get balance of ERC20 tokens
+const balanceOf = async (tokenAddr) => {
+
+  const account = await getAccount();
+  
+  const token = new ethers.Contract(
+    tokenAddr,
+    ["function balanceOf(address) view returns(uint256)"],
+    account
+  );
+  
+  const balance = await token.balanceOf(await account.getAddress());
+
+  return ethers.utils.formatUnits(balance, await getDecimals(tokenAddr));                 
+};
+
+const getReserves = async (tokenAAddr, tokenBAddr) => {
+  const account = await getAccount();
+
+  // get the Uniswap Factory
+  const uniswapFactory = new ethers.Contract(
+    UNISWAPFACTORY_ADDRESS,
+    ["function getPair (address, address) view returns(address)"],
+    account
+  );
+
+  // get the liquidity pool contract address
+  const poolAddress = await uniswapFactory.getPair(tokenAAddr, tokenBAddr);
+  
+  // get the Uniswap pool contract 
+  const pool = new ethers.Contract(
+    poolAddress,
+    ["function getReserves() view returns (uint112, uint112, uint32)",
+    "function token0 () view returns (address)",
+    ],
+    account
+  );
+
+  // get the reserves
+  const reserves = await pool.getReserves();
+  
+  // get token0 address
+  const token0 = await pool.token0();
+
+  // check if tokenAAddr is the same as token0, and arrange
+  // the return values accordingly
+  return tokenAAddr === token0
+    ? { reserveA: reserves[0], reserveB: reserves[1] }
+    : { reserveA: reserves[1], reserveB: reserves[0] };
+};
+
+// estimate the amount in 
+const getAmountIn = (amountOut, reserveIn, reserveOut) => {
+  amountOut = BigNumber.from(amountOut);
+        
+  const numerator = amountOut.mul(reserveIn);
+  const denominator = reserveOut.sub(amountOut);
+  let amountInWithFee = numerator.mul(1000) / denominator.mul(997);
+        
+  return BigNumber.from(Math.ceil(amountInWithFee).toString());
+};
+
+// estimate the amount out
+const getAmountOut = (amountIn, reserveIn, reserveOut) => {
+  amountIn = BigNumber.from(amountIn);
+  
+  const amountInWithFee = amountIn.mul(997);
+  const numerator = amountInWithFee.mul(reserveOut);
+  const denominator = reserveIn.mul(1000).add(amountInWithFee);
+  let amountOut = numerator / denominator;
+  
+  return BigNumber.from(Math.floor(amountOut).toString());
+};
+
 const distill = async (time) => {
   const account = await getAccount();
   const distillery = new ethers.Contract(
@@ -85,72 +159,7 @@ const getTimeBalance = async () => {
   );
   return await chronium.checkTimeBalance(await account.getAddress());
 };
-
-// Get balance of ERC20 tokens
-const balanceOf = async (tokenAddr) => {
-
-  const account = await getAccount();
   
-  const token = new ethers.Contract(
-    tokenAddr,
-    ["function balanceOf(address) view returns(uint256)"],
-    account
-  );
-  
-  const balance = await token.balanceOf(await account.getAddress());
-
-  return ethers.utils.formatUnits(balance, await getDecimals(tokenAddr));                           
-};
-
-const getReserves = async (tokenAAddr, tokenBAddr) => {
-  const account = await getAccount();
-
-  // get the Uniswap Factory
-  const uniswapFactory = new ethers.Contract(
-    UNISWAPFACTORY_ADDRESS,
-    ["function getPair (address, address) view returns(address)"],
-    account
-  );
-
-  // get the liquidity pool contract address
-  const poolAddress = await uniswapFactory.getPair(tokenAAddr, tokenBAddr);
-  
-  // get the Uniswap pool contract 
-  const pool = new ethers.Contract(
-    poolAddress,
-    ["function getReserves() view returns (uint112, uint112, uint32)"],
-    account
-  );
-
-  // get the reserves
-  const reserves = await pool.getReserves();
-
-  return tokenAAddr < tokenBAddr
-    ? { reserveA: reserves[0], reserveB: reserves[1] }
-    : { reserveA: reserves[1], reserveB: reserves[0] };
-};
-
-// estimate the max amount in 
-const getAmountIn = (amountOut, reserveIn, reserveOut) => {
-  amountOut = BigNumber.from(amountOut);
-        
-  const numerator = amountOut.mul(reserveIn);
-  const denominator = reserveOut.sub(amountOut);
-  let amountInWithFee = numerator.mul(1000) / denominator.mul(997);
-        
-  return BigNumber.from(Math.ceil(amountInWithFee).toString());
-};
-
-// estimate the min amount out
-const getAmountOut = (amountIn, reserveIn, reserveOut) => {
-  amountIn = BigNumber.from(amountIn);
-  const amountInWithFee = amountIn.mul(997);
-  const numerator = amountInWithFee.mul(reserveOut);
-  const denominator = reserveIn.mul(1000).add(amountInWithFee);
-  let amountOut = numerator / denominator;
-  return BigNumber.from(Math.floor(amountOut).toString());
-};
-    
 // Sell exact amount of input tokens for output tokens using UniswapV2
 const sellTokens = async (inputAmt, inputAddr, outputAddr) => {
   console.log("sellTokens");
@@ -171,10 +180,12 @@ const sellTokens = async (inputAmt, inputAddr, outputAddr) => {
   console.log ("output token", outputAddr);
   console.log ("output token reserve", reserves.reserveB.toString());
 
+  // estimate the min amt out
   const amtOut = getAmountOut(inputAmt, reserves.reserveA, reserves.reserveB);
+  console.log ("amt out", amtOut.toString());
 
-  console.log ("min amt out", amtOut.toString());
-
+  const minAmtOut = Math.floor(0.95 * amtOut);
+  console.log ("min amt out", minAmtOut);
 
   // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw inputAmt
   const receipt = await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, inputAmt);
@@ -187,7 +198,7 @@ const sellTokens = async (inputAmt, inputAddr, outputAddr) => {
   await uniswap
         .swapExactTokensForTokens(
                inputAmt,
-               0,
+               minAmtOut,
                [inputAddr, outputAddr],
                account.getAddress(),
                ts
@@ -214,12 +225,15 @@ const buyTokens = async (outputAmt, outputAddr, inputAddr) => {
   console.log ("output token", outputAddr);
   console.log ("output token reserve", reserves.reserveB.toString());
 
+  // estimate max amt in
   const amtIn = getAmountIn(outputAmt, reserves.reserveA, reserves.reserveB);
+  console.log ("amt in", amtIn.toString());
 
-  console.log ("max amt in", amtIn.toString());
+  const maxAmtIn = Math.ceil(1.05 * amtIn);
+  console.log ("max amt in", maxAmtIn);
     
-  // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw inputAmt
-  const approve = await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, amtIn);
+  // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw up to maxAmt in
+  const approve = await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, maxAmtIn);
   console.log ("approve", approve);
  
   const ts = (await provider.getBlock()).timestamp + 1000;
@@ -229,7 +243,7 @@ const buyTokens = async (outputAmt, outputAddr, inputAddr) => {
   await uniswap
         .swapTokensForExactTokens(
           outputAmt,
-          amtIn,
+          maxAmtIn,
           [inputAddr, outputAddr],
           account.getAddress(),
           ts
