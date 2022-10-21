@@ -19,12 +19,24 @@ import {distill, CHRONIUM_ADDRESS, getTimeBalance, balanceOf, sellTokens, buyTok
 
 const Row = ({symbol,tokenAddress,tokenBalance})=>{
     const [isTxnInProgress, setTxnInProgress] = useState(false);
+    const [openDialog, setOpenDialog] = useState(false);
+    const [errorMsg, setErrorMsg] = useState(null);
     const inputRef = useRef({});
+
+    //let errorMsg;
 
     const handleBuy = async (e)=>{
         const quantity = inputRef.current['quantity'].value;
         setTxnInProgress(true);
-        await buyTokens(quantity,tokenAddress, CHRONIUM_ADDRESS);
+        try {
+            await buyTokens(quantity,tokenAddress, CHRONIUM_ADDRESS);
+        }
+        catch(e){
+           console.log(e.message);
+           setErrorMsg(e.message);
+           setOpenDialog(true);           
+        }
+
         setTxnInProgress(false);
         console.log(`Buy ${quantity} of ${symbol}`);
     }
@@ -32,9 +44,20 @@ const Row = ({symbol,tokenAddress,tokenBalance})=>{
     const handleSell = async (e)=>{
         const quantity = inputRef.current['quantity'].value;
         setTxnInProgress(true);
-        await sellTokens(quantity,tokenAddress, CHRONIUM_ADDRESS);
+        try{
+            await sellTokens(quantity,tokenAddress, CHRONIUM_ADDRESS);
+        }
+        catch(e){
+            console.log(e.message);
+            setErrorMsg(e.message);
+            setOpenDialog(true);
+        }
         setTxnInProgress(false);
         console.log(`Sell ${quantity} of ${symbol}`);
+    }
+
+    const handleClose = ()=>{
+        setOpenDialog(false);
     }
 
     return (<form onSubmit={() => inputRef.current.value}>
@@ -57,6 +80,26 @@ const Row = ({symbol,tokenAddress,tokenBalance})=>{
                     <Button onClick={handleBuy}>Buy</Button>
                 </Grid><Grid item xs={1}>
                         <Button onClick={handleSell}>Sell</Button>
+                        <div>
+                        <Dialog
+                            open={openDialog}
+                            onClose={handleClose}
+                            aria-labelledby="alert-dialog-title"
+                            aria-describedby="alert-dialog-description"
+                        >
+                            <DialogTitle id="alert-dialog-title">
+                                {"Something Went Wrong!"}
+                            </DialogTitle>
+                            <DialogContent>
+                                <DialogContentText id="alert-dialog-description">
+                                {errorMsg}
+                                </DialogContentText>
+                            </DialogContent>
+                            <DialogActions>
+                                <Button onClick={handleClose} autoFocus> OK</Button>
+                            </DialogActions>
+                        </Dialog>
+                        </div>      
                     </Grid></>)
             }
         </Grid>

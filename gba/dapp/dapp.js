@@ -6,9 +6,6 @@ const UNISWAPFACTORY_ADDRESS = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f";
 
 const provider = new ethers.providers.Web3Provider(window.ethereum);
 
-//tmp addr
-const SPENDER_ADDRESS = "0xD484f9dE8609d32573b244D964D7a6Dc6EA3586F";
-
 const tokens = [
   {
     symbol: "WNDR",
@@ -164,90 +161,167 @@ const getTimeBalance = async () => {
 const sellTokens = async (inputAmt, inputAddr, outputAddr) => {
   console.log("sellTokens");
 
-  const account = await getAccount();
+  let isInputValid = false;
 
-  // create the uniswap router object
-  const uniswap = new ethers.Contract(
-    UNISWAPROUTER_ADDRESS,
-    ["function swapExactTokensForTokens(uint, uint, address[], address, uint)  returns(uint[] memory)"],
-    account
-  );
+  // input validation
+  inputAmt = +inputAmt;
+
+  if (  ethers.utils.isAddress(outputAddr)
+      &&ethers.utils.isAddress(inputAddr)
+      &&Number.isInteger(inputAmt))
+  {
+    isInputValid = true;
+  };
   
-  const reserves = await getReserves(inputAddr, outputAddr);
-  
-  console.log ("input token", inputAddr);
-  console.log ("input token reserve", reserves.reserveA.toString());
-  console.log ("output token", outputAddr);
-  console.log ("output token reserve", reserves.reserveB.toString());
+  if (isInputValid === true)
+  {
+    const account = await getAccount();
 
-  // estimate the min amt out
-  const amtOut = getAmountOut(inputAmt, reserves.reserveA, reserves.reserveB);
-  console.log ("amt out", amtOut.toString());
+    // create the uniswap router object
+    const uniswap = new ethers.Contract(
+      UNISWAPROUTER_ADDRESS,
+      ["function swapExactTokensForTokens(uint, uint, address[], address, uint)  returns(uint[] memory)"],
+      account
+    );
+    
+    let reserves;
+    try {
+      reserves = await getReserves(inputAddr, outputAddr);
+    }
+    catch(e){
+      console.log ("Sell Tokens: Failed to get pool reserves");
+      throw new Error ('Sell Tokens: Failed to get pool reserves');
+    };
+    
+    console.log ("input token", inputAddr);
+    console.log ("input token reserve", reserves.reserveA.toString());
+    console.log ("output token", outputAddr);
+    console.log ("output token reserve", reserves.reserveB.toString());
 
-  const minAmtOut = Math.floor(0.95 * amtOut);
-  console.log ("min amt out", minAmtOut);
+    // estimate the min amt out
+    const amtOut = getAmountOut(inputAmt, reserves.reserveA, reserves.reserveB);
+    console.log ("amt out", amtOut.toString());
 
-  // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw inputAmt
-  const receipt = await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, inputAmt);
+    const minAmtOut = Math.floor(0.95 * amtOut);
+    console.log ("min amt out", minAmtOut);
 
-  const response = receipt.wait();
+    // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw inputAmt
+    try {
+      await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, inputAmt);
+    }
+    catch(e){
+      console.log ("Sell Tokens: Failed to get approval");
+      throw new Error ('Sell Tokens: Failed to get approval');
+    };   
+    
+    const ts = (await provider.getBlock()).timestamp + 1000;
 
-  const ts = (await provider.getBlock()).timestamp + 1000;
+    console.log("prepare for swapExactTokensForTokens");
 
-  console.log("prepare for swapExactTokensForTokens");
-  await uniswap
-        .swapExactTokensForTokens(
-               inputAmt,
-               minAmtOut,
-               [inputAddr, outputAddr],
-               account.getAddress(),
-               ts
-           );
+    try{
+      await uniswap
+            .swapExactTokensForTokens(
+                 inputAmt,
+                 minAmtOut,
+                 [inputAddr, outputAddr],
+                 account.getAddress(),
+                 ts
+             );
+    }
+    catch(e){
+         console.log ("Sell Tokens: Failed to swap");
+        throw new Error ('Sell Tokens: Failed to swap');
+    };    
+  }
+  else
+  {
+    console.log ("Sell Tokens: Invalid input");
+    throw new Error ('Sell Tokens: Invalid input');
+  };
 };
 
 // Buy exact amount of output tokens for input tokens using UniswapV2
 const buyTokens = async (outputAmt, outputAddr, inputAddr) => {
   console.log("buyTokens");
 
-  const account = await getAccount();
-
-  // create the uniswap router object
-  const uniswap = new ethers.Contract(
-    UNISWAPROUTER_ADDRESS,
-    ["function swapTokensForExactTokens(uint, uint, address[], address, uint)  returns(uint[] memory)"],
-    account
-  );
-
-  const reserves = await getReserves(inputAddr, outputAddr);
+  let isInputValid = false;
   
-  console.log ("input token", inputAddr);
-  console.log ("input token reserve", reserves.reserveA.toString());
-  console.log ("output token", outputAddr);
-  console.log ("output token reserve", reserves.reserveB.toString());
+  // input validation
+  outputAmt = +outputAmt;
 
-  // estimate max amt in
-  const amtIn = getAmountIn(outputAmt, reserves.reserveA, reserves.reserveB);
-  console.log ("amt in", amtIn.toString());
+  if (  ethers.utils.isAddress(outputAddr)
+      &&ethers.utils.isAddress(inputAddr)
+      &&Number.isInteger(outputAmt))
+  {
+    isInputValid = true;
+  };
+  
+  if (isInputValid === true)
+  {
+    const account = await getAccount();
 
-  const maxAmtIn = Math.ceil(1.05 * amtIn);
-  console.log ("max amt in", maxAmtIn);
+    // create the uniswap router object
+    const uniswap = new ethers.Contract(
+      UNISWAPROUTER_ADDRESS,
+      ["function swapTokensForExactTokens(uint, uint, address[], address, uint)  returns(uint[] memory)"],
+      account
+    );
     
-  // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw up to maxAmt in
-  const approve = await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, maxAmtIn);
-  console.log ("approve", approve);
- 
-  const ts = (await provider.getBlock()).timestamp + 1000;
+    let reserves;
 
-  console.log("prepare for swapTokensForExactTokens");
+    try {
+      reserves = await getReserves(inputAddr, outputAddr);
+    }
+    catch(e){
+      console.log ("Buy Tokens: Failed to get pool reserves");
+      throw new Error ('Buy Tokens: Failed to get pool reserves');    
+    };
+    
+    console.log ("input token", inputAddr);
+    console.log ("input token reserve", reserves.reserveA.toString());
+    console.log ("output token", outputAddr);
+    console.log ("output token reserve", reserves.reserveB.toString());
 
-  await uniswap
-        .swapTokensForExactTokens(
-          outputAmt,
-          maxAmtIn,
-          [inputAddr, outputAddr],
-          account.getAddress(),
-          ts
-        );
+    // estimate max amt in
+    const amtIn = getAmountIn(outputAmt, reserves.reserveA, reserves.reserveB);
+    console.log ("amt in", amtIn.toString());
+
+    const maxAmtIn = Math.ceil(1.05 * amtIn);
+    console.log ("max amt in", maxAmtIn);
+      
+    // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw up to maxAmt in
+    try {
+      await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, maxAmtIn);
+    }
+    catch(e){
+      console.log ("Buy Tokens: Failed to get approval");
+      throw new Error ('Buy Tokens: Failed to get approval');
+    };
+
+    const ts = (await provider.getBlock()).timestamp + 1000;
+
+    console.log("prepare for swapTokensForExactTokens");
+
+    try{
+      await uniswap
+            .swapTokensForExactTokens(
+              outputAmt,
+              maxAmtIn,
+             [inputAddr, outputAddr],
+              account.getAddress(),
+              ts
+            );
+    }
+    catch(e){
+      console.log ("Buy Tokens: Invalid input");
+      throw new Error ('Buy Tokens: Invalid input');
+    };
+  }
+  else
+  {
+    console.log("Buy Tokens: Invalid input");
+    throw new Error ('Buy Tokens: Invalid input');
+  };
 };
 
 export {
