@@ -59,6 +59,24 @@ const getDecimals = async (tokenAddr) => {
   return await token.decimals();    
 };
 
+// Get allowance of ERC20 tokens
+const getAllowance = async (tokenAddr, spenderAddr) => {
+
+  const account = await getAccount();
+  
+  const token = new ethers.Contract(
+    tokenAddr,
+    ["function allowance(address, address) view returns(uint256)"],
+    account
+  );
+  
+  const ownerAddr = await account.getAddress();
+  console.log ("getAllowance", ownerAddr, spenderAddr);
+
+  return await token.allowance(ownerAddr, spenderAddr);    
+};
+
+
 // Get Approval for Spending ERC20 token
 const getApproval = async (tokenAddr, spenderAddr, amount) => {
   const account = await getAccount();
@@ -68,15 +86,30 @@ const getApproval = async (tokenAddr, spenderAddr, amount) => {
   console.log ("spender addr", spenderAddr);
   console.log ("amount", amount.toString());
 
-  const token = new ethers.Contract(
-    tokenAddr,
-    ["function approve(address, uint256) returns(bool)"],
-    account
-  );
-  
-  const approval = await token.approve(spenderAddr, amount); 
+  // check available allowance
+  const allowance = await getAllowance(tokenAddr, spenderAddr);
 
-  return approval;   
+  console.log ("getApproval: getAllowance", allowance);
+
+  // seek approval if allowance is not sufficient
+  if (allowance < amount){
+    console.log ("getApproval: not sufficient allowance");
+
+    const token = new ethers.Contract(
+      tokenAddr,
+      ["function approve(address, uint256) returns(bool)"],
+      account
+    );
+  
+    const response = await token.approve(spenderAddr, amount); 
+
+    const receipt = await response.wait();
+
+    console.log(receipt);
+  }
+  else{
+    console.log("getApproval: sufficient allowance");
+  }
 }
 
 // Get balance of ERC20 tokens
@@ -225,15 +258,7 @@ const sellTokens = async (inputAmt, inputAddr, outputAddr) => {
 
     // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw inputAmt
     try {
-      const response = await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, inputAmt);
-
-      const receipt = await response.wait();
-
-      console.log(receipt);
-
-      // const approval = receipt.events.find((x)=>x.event === "Approval");
-
-      // console.log(`${approval._owner} approved ${approval._spender} to spend ${approval._value}` );
+      await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, inputAmt);
     }
     catch(e){
       console.log(e);
@@ -320,15 +345,7 @@ const buyTokens = async (outputAmt, outputAddr, inputAddr) => {
       
     // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw up to maxAmt in
     try {
-      const response = await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, maxAmtIn);
-      
-      const receipt = await response.wait();
-
-      console.log(receipt);
-
-      // const approval = receipt.events.find((x)=>x.event === "Approval");
-
-      // console.log(`${approval._owner} approved ${approval._spender} to spend ${approval._value}` );
+      await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, maxAmtIn);   
     }
     catch(e){
       console.log(e);
