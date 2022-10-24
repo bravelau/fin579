@@ -19,6 +19,18 @@ const tokens = [
    symbol: "FLY",
    tokenAddress: "0xceE732A0278df525F474a121902F8f4e7F372c52",
  }, 
+ {
+   symbol: "ARK",
+   tokenAddress: "0x9D1Da8c1eAA9804C00Bb5828b2911985270818ed",
+ }, 
+{
+  symbol: "First",
+  tokenAddress: "0x2CC195ED7dC6a462EdcF29c397996ECe1814bc59",
+}, 
+{
+  symbol: "MT",
+  tokenAddress: "0xB21b12FF55a144399C640B6343d45f9F7Ea30475",
+}, 
 ];
 
 const getAccount = async () => {
@@ -56,9 +68,9 @@ const getApproval = async (tokenAddr, spenderAddr, amount) => {
     account
   );
   
-  const app = await token.approve(spenderAddr, amount); 
+  const approval = await token.approve(spenderAddr, amount); 
 
-  return app;   
+  return approval;   
 }
 
 // Get balance of ERC20 tokens
@@ -207,7 +219,11 @@ const sellTokens = async (inputAmt, inputAddr, outputAddr) => {
 
     // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw inputAmt
     try {
-      await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, inputAmt);
+      const response = await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, inputAmt);
+
+      const receipt = await response.wait();
+
+      console.log("receipt", receipt);
     }
     catch(e){
       console.log ("Sell Tokens: Failed to get approval");
@@ -291,7 +307,11 @@ const buyTokens = async (outputAmt, outputAddr, inputAddr) => {
       
     // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw up to maxAmt in
     try {
-      await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, maxAmtIn);
+      const response = await getApproval(inputAddr, UNISWAPROUTER_ADDRESS, maxAmtIn);
+      
+      const receipt = await response.wait();
+
+      console.log("receipt", receipt);
     }
     catch(e){
       console.log ("Buy Tokens: Failed to get approval");
@@ -313,8 +333,8 @@ const buyTokens = async (outputAmt, outputAddr, inputAddr) => {
             );
     }
     catch(e){
-      console.log ("Buy Tokens: Invalid input");
-      throw new Error ('Buy Tokens: Invalid input');
+      console.log ("Buy Tokens: Failed to swap");
+      throw new Error ('Buy Tokens: Failed to swap');
     };
   }
   else
