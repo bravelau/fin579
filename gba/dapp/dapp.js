@@ -1,3 +1,5 @@
+//Fin579 GBA dapp.js 
+
 import { ethers, BigNumber } from "ethers";
 const CHRONIUM_ADDRESS = "0xDd6010412b61570bd6f0101460bb80bDbE103E28";
 const DISTILLERY_ADDRESS = "0xa20f2c420f14418b580f60A4964727B66f34C88d";
@@ -26,6 +28,10 @@ const tokens = [
 {
   symbol: "First",
   tokenAddress: "0x2CC195ED7dC6a462EdcF29c397996ECe1814bc59",
+}, 
+{
+  symbol: "NUT",
+  tokenAddress: "0x1b032b16f2607E84c3964a36f1332b4Ca6786507",
 }, 
 {
   symbol: "MT",
@@ -86,7 +92,7 @@ const balanceOf = async (tokenAddr) => {
   
   const balance = await token.balanceOf(await account.getAddress());
 
-  return ethers.utils.formatUnits(balance, await getDecimals(tokenAddr));                 
+  return ethers.utils.formatUnits(balance, 0);                 
 };
 
 const getReserves = async (tokenAAddr, tokenBAddr) => {
@@ -214,7 +220,7 @@ const sellTokens = async (inputAmt, inputAddr, outputAddr) => {
     const amtOut = getAmountOut(inputAmt, reserves.reserveA, reserves.reserveB);
     console.log ("amt out", amtOut.toString());
 
-    const minAmtOut = Math.floor(0.95 * amtOut);
+    const minAmtOut = Math.floor(0.9 * amtOut);
     console.log ("min amt out", minAmtOut);
 
     // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw inputAmt
@@ -223,10 +229,14 @@ const sellTokens = async (inputAmt, inputAddr, outputAddr) => {
 
       const receipt = await response.wait();
 
-      console.log("receipt", receipt);
+      console.log(receipt);
+
+      // const approval = receipt.events.find((x)=>x.event === "Approval");
+
+      // console.log(`${approval._owner} approved ${approval._spender} to spend ${approval._value}` );
     }
     catch(e){
-      console.log ("Sell Tokens: Failed to get approval");
+      console.log(e);
       throw new Error ('Sell Tokens: Failed to get approval');
     };   
     
@@ -235,14 +245,17 @@ const sellTokens = async (inputAmt, inputAddr, outputAddr) => {
     console.log("prepare for swapExactTokensForTokens");
 
     try{
-      await uniswap
-            .swapExactTokensForTokens(
-                 inputAmt,
-                 minAmtOut,
-                 [inputAddr, outputAddr],
-                 account.getAddress(),
-                 ts
-             );
+      const response = await uniswap
+                            .swapExactTokensForTokens(
+                            inputAmt,
+                            minAmtOut,
+                            [inputAddr, outputAddr],
+                            account.getAddress(),
+                            ts
+                      );
+                      
+      const receipt = await response.wait();
+      console.log(receipt);
     }
     catch(e){
          console.log ("Sell Tokens: Failed to swap");
@@ -302,7 +315,7 @@ const buyTokens = async (outputAmt, outputAddr, inputAddr) => {
     const amtIn = getAmountIn(outputAmt, reserves.reserveA, reserves.reserveB);
     console.log ("amt in", amtIn.toString());
 
-    const maxAmtIn = Math.ceil(1.05 * amtIn);
+    const maxAmtIn = Math.ceil(1.1 * amtIn);
     console.log ("max amt in", maxAmtIn);
       
     // seek approval to allow UNISWAPROUTER_ADDRESS to withdraw up to maxAmt in
@@ -311,10 +324,14 @@ const buyTokens = async (outputAmt, outputAddr, inputAddr) => {
       
       const receipt = await response.wait();
 
-      console.log("receipt", receipt);
+      console.log(receipt);
+
+      // const approval = receipt.events.find((x)=>x.event === "Approval");
+
+      // console.log(`${approval._owner} approved ${approval._spender} to spend ${approval._value}` );
     }
     catch(e){
-      console.log ("Buy Tokens: Failed to get approval");
+      console.log(e);
       throw new Error ('Buy Tokens: Failed to get approval');
     };
 
@@ -323,14 +340,16 @@ const buyTokens = async (outputAmt, outputAddr, inputAddr) => {
     console.log("prepare for swapTokensForExactTokens");
 
     try{
-      await uniswap
-            .swapTokensForExactTokens(
-              outputAmt,
-              maxAmtIn,
-             [inputAddr, outputAddr],
-              account.getAddress(),
-              ts
-            );
+      const response = await uniswap
+                            .swapTokensForExactTokens(
+                            outputAmt,
+                            maxAmtIn,
+                            [inputAddr, outputAddr],
+                            account.getAddress(),
+                            ts
+                        );
+      const receipt = await response.wait();
+      console.log(receipt);
     }
     catch(e){
       console.log ("Buy Tokens: Failed to swap");
