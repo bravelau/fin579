@@ -34,8 +34,8 @@ const tokens = [
   tokenAddress: "0x1b032b16f2607E84c3964a36f1332b4Ca6786507",
 }, 
 {
-  symbol: "MT",
-  tokenAddress: "0xB21b12FF55a144399C640B6343d45f9F7Ea30475",
+  symbol: "NI",
+  tokenAddress: "0xBb4D10d563E271FD717712176e75cD8226116d63",
 }, 
 ];
 

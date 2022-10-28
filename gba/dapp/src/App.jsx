@@ -1,3 +1,4 @@
+//Fin579 GBA App.jsx
 import React, { useState, useRef } from "react";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import {
@@ -15,25 +16,30 @@ import {
 } from "@mui/material";
 import {distill, CHRONIUM_ADDRESS, getTimeBalance, balanceOf, sellTokens, buyTokens, tokens} from './dapp.js';
 
-
+const errorHeader = "Something Went Wrong!";
+const successHeader = "Success!";
 
 const Row = ({symbol,tokenAddress,tokenBalance})=>{
     const [isTxnInProgress, setTxnInProgress] = useState(false);
     const [openDialog, setOpenDialog] = useState(false);
-    const [errorMsg, setErrorMsg] = useState(null);
+    const [dialogHeader, setDialogHeader] = useState(null);
+    const [dialogMsg, setDialogMsg] = useState(null);
     const inputRef = useRef({});
-
-    //let errorMsg;
 
     const handleBuy = async (e)=>{
         const quantity = inputRef.current['quantity'].value;
         setTxnInProgress(true);
         try {
             await buyTokens(quantity,tokenAddress, CHRONIUM_ADDRESS);
+
+            setDialogHeader(successHeader);
+            setDialogMsg("Buy Transaction Completed");
+            setOpenDialog(true);      
         }
         catch(e){
            console.log(e.message);
-           setErrorMsg(e.message);
+           setDialogHeader(errorHeader);
+           setDialogMsg(e.message);
            setOpenDialog(true);           
         }
 
@@ -46,10 +52,15 @@ const Row = ({symbol,tokenAddress,tokenBalance})=>{
         setTxnInProgress(true);
         try{
             await sellTokens(quantity,tokenAddress, CHRONIUM_ADDRESS);
+            
+            setDialogHeader(successHeader);
+            setDialogMsg("Sell Transaction Completed");
+            setOpenDialog(true);      
         }
         catch(e){
             console.log(e.message);
-            setErrorMsg(e.message);
+            setDialogHeader(errorHeader);
+            setDialogMsg(e.message);
             setOpenDialog(true);
         }
         setTxnInProgress(false);
@@ -62,7 +73,7 @@ const Row = ({symbol,tokenAddress,tokenBalance})=>{
 
     return (<form onSubmit={() => inputRef.current.value}>
 
-        <Grid container columns={16} spacing={2} sx={{ mb: 2 }} alignItems='center' justifyContent='space-between'>
+        <Grid container columns={16} spacing={2} sx={{ mb: 2,}} alignItems='center' justifyContent='space-between'>
             <Grid item xs={2}>
                 {symbol}
             </Grid>
@@ -88,11 +99,11 @@ const Row = ({symbol,tokenAddress,tokenBalance})=>{
                             aria-describedby="alert-dialog-description"
                         >
                             <DialogTitle id="alert-dialog-title">
-                                {"Something Went Wrong!"}
+                                {dialogHeader}
                             </DialogTitle>
                             <DialogContent>
                                 <DialogContentText id="alert-dialog-description">
-                                {errorMsg}
+                                {dialogMsg}
                                 </DialogContentText>
                             </DialogContent>
                             <DialogActions>
@@ -171,7 +182,7 @@ const App = () => {
                     </Grid>
                     <hr></hr>
                     <h2>Trade</h2>
-                    <Grid container columns={16} sx={{ mb: 2 }} alignItems='center' justifyContent='space-between'>
+                    <Grid container columns={16} sx={{ mb: 2,}} alignItems='center' justifyContent='space-between'>
                         <Grid item xs={2}>
                             Token
                         </Grid>
